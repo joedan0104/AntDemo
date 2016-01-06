@@ -1,0 +1,12 @@
+main
+tencent
+baidu
+xiaomi
+sogou
+360
+wandoujia
+91market
+appchina
+anzhi
+lenovomm
+android_market

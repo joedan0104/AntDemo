@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="custom_rules">
+	<target name="auto-debug">
+		<property name="build.last.is.packaging.debug" value="true" />
+		<!-- 创建属性文件并且写入属性值 -->
+		<propertyfile file="auto.prop">
+			<entry key="build.last.is.packaging.debug" value="${build.last.is.packaging.debug}" />
+		</propertyfile>
+
+		<echo
+			message="build.last.is.packaging.debug: ${build.last.is.packaging.debug}" />
+		<antcall target="-auto">
+		</antcall>
+	</target>
+
+	<target name="auto-release">
+		<antcall target="-auto">
+		</antcall>
+	</target>
+
+	<target name="-auto">
+
+		<!-- 属性auto.here.dir对应ant.file构建文件所在的目录 -->
+		<dirname property="auto.here.dir" file="${ant.file}" />
+		<!-- 属性auto.project.tmp.dir对应自动化打包临时目录 -->
+		<property name="auto.project.tmp.dir" value="${auto.here.dir}Tmp" />
+
+		<!-- 解析AndroidManifest.xml 获得包名 -->
+		<xmlproperty file="AndroidManifest.xml"
+			collapseAttributes="true" />
+		<!-- 写入配置文件 -->
+		<propertyfile file="auto.prop">
+			<entry key="auto.package" value="${manifest.package}" />
+			<entry key="auto.final.versionCode" value="${manifest.android:versionCode}" />
+			<entry key="auto.final.versionName" value="${auto.final.versionName}" />
+			<entry key="auto.project.tmp.dir" value="${auto.project.tmp.dir}" />
+		</propertyfile>
+		<!-- 属性版本名称 -->
+		<property name="auto.final.versionName" value="${manifest.android:versionName}" />
+
+		<!-- 复制项目到临时目录，避免替换打包影响本目录代码 -->
+		<delete dir="${auto.project.tmp.dir}" />
+		<copy todir="${auto.project.tmp.dir}" overwrite="true">
+			<fileset dir="./">
+				<!-- 忽略隐藏文件 -->
+				<exclude name=".*" />
+				<exclude name=".*/*" />
+			</fileset>
+		</copy>
+
+		<!-- 友盟渠道参数: 默认使用Mainfest中的定义 -->
+		<condition property="UMENG_CHANNEL" value="main">
+			<not>
+				<isset property="UMENG_CHANNEL" />
+			</not>
+		</condition>
+		<!-- 检查参数或配置中输出文件是否使用时间戳 默认不使用 -->
+		<condition property="auto.has.time" value="${time}" else="false">
+			<isset property="time" />
+		</condition>
+
+		<echo message="auto.project.tmp.dir: ${auto.project.tmp.dir}" />
+		<echo message="auto.has.package: ${auto.has.package}" />
+		<echo message="package: ${manifest.package}" />
+		<echo message="UMENG_CHANNEL: ${UMENG_CHANNEL}" />
+
+		<!-- 修改包名（仍然存在问题） -->
+		<!--antcall target="-change-package-name"> </antcall -->
+
+		<!-- 修改友盟渠道 -->
+		<antcall target="-change-umeng-channel">
+		</antcall>
+
+		<!-- 编译目标类型: debug或release -->
+		<condition property="build.last.target" value="debug" else="release">
+			<istrue value="${build.last.is.packaging.debug}" />
+		</condition>
+
+		<!-- 修改时间戳，防止编译结果覆盖 -->
+		<script language="javascript">
+            <![CDATA[
+                property = project.setProperty("now",Math.floor((new Date()).getTime()/1000));
+            ]]>
+		</script>
+		<tstamp>
+			<format property="auto.final.timestamp" pattern="yyyyMMddHHmmss" />
+		</tstamp>
+
+		<!-- 输出APK文件名 根据是否使用时间戳区分 -->
+		<!-- 采用组合方式生成输出文件名 -->
+		<condition property="build.last.name" value="_${build.last.target}"
+			else="">
+			<equals arg1="${build.last.target}" arg2="debug" />
+		</condition>
+		<condition property="build.timestamp.name" value="_${auto.final.timestamp}"
+			else="">
+			<istrue value="${auto.has.time}" />
+		</condition>
+		<property name="auto.out.file"
+			value="${ant.project.name}${build.last.name}_${auto.final.versionName}_${UMENG_CHANNEL}${build.timestamp.name}.apk" />
+		<echo message="auto.out.file: ${auto.out.file}" />
+		<echo message="out.absolute.dir: ${out.absolute.dir}" />
+
+		<!-- 编译渠道包 -->
+		<antcall target="-channel_compile">
+		</antcall>
+
+		<!-- 复制打好的包 到 本目录下 -->
+		<antcall target="-cp-out-final-file">
+		</antcall>
+
+		<property file="auto.prop" />
+		<echo message="package: ${auto.package}" />
+		<echo message="UMENG_CHANNEL : ${UMENG_CHANNEL}" />
+		<echo message="versionCode: ${auto.final.versionCode}" />
+		<echo message="versionName: ${auto.final.versionName}" />
+	</target>
+
+	<!-- 渠道属性变更 -->
+	<target name="-change-umeng-channel">
+		<!-- 将渠道属性写入属性文件 -->
+		<propertyfile file="${auto.project.tmp.dir}/auto.prop">
+			<entry key="auto.umeng.channel" value="${UMENG_CHANNEL}" />
+		</propertyfile>
+		<!-- 将渠道属性写入目标Mainfest文件文件 -->
+		<echo message="UMENG_CHANNEL : ${UMENG_CHANNEL}" />
+		<replaceregexp encoding="utf-8"
+			file="${auto.project.tmp.dir}/AndroidManifest.xml"
+			match="&lt;meta\-data(\s+)android:name=&quot;UMENG_CHANNEL&quot;(\s+)android:value=&quot;[a-zA-Z0-9]+&quot;"
+			replace="&lt;meta\-data android:name=&quot;UMENG_CHANNEL&quot; android:value=&quot;${UMENG_CHANNEL}&quot;" />
+	</target>
+
+	<!-- 编译渠道包，渠道包便已完成以后位于临时目录下 -->
+	<target name="-channel_compile" description="Compile Channel apk package">
+		<ant antfile="build.xml" dir="${auto.project.tmp.dir}" inheritall="false"
+			inheritrefs="false" target="${build.last.target}" />
+	</target>
+
+	<!-- 将目标文件从临时目录复制到目标目录 -->
+	<target name="-cp-out-final-file">
+		<property file="auto.prop" />
+		<condition property="build.last.target" value="debug" else="release">
+			<istrue value="${build.last.is.packaging.debug}" />
+		</condition>
+
+		<!-- 创建目标文件夹 -->
+		<mkdir dir="${out.absolute.dir}" />
+		<!-- 目标文件重命名 -->
+		<copy
+			file="${auto.project.tmp.dir}/${out.dir}/${ant.project.name}-${build.last.target}.apk"
+			tofile="${out.absolute.dir}/${auto.out.file}" overwrite="true">
+		</copy>
+	</target>
+
+</project>
