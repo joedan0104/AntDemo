@@ -22,7 +22,9 @@ Android ant 自动打包脚本：自动替换友盟渠道、版本号、包名�
 
 如果ant debug打包能通过，则可以使用下面的自动打包。
 
-第二步：下载`custom_rules.xml`，放到项目目录中，然后执行：
+第二步：自动化打包
+--------------------
+下载`custom_rules.xml`，放到项目目录中，然后执行：
 
     ant auto-debug -Dversion=time
 
@@ -39,8 +41,9 @@ time: 打包文件是否采用时间命名，默认为false。 例如AntDemo-rel
 即可。
 
 第三步：渠道打包
-打包时自动更换友盟渠道
 ----------------------
+打包时自动更换友盟渠道
+
 
 确认`AndroidManifest.xml`中已添加了友盟节点：
 
@@ -58,6 +61,14 @@ time: 打包文件是否采用时间命名，默认为false。 例如AntDemo-rel
 
 即会打出锤子应用商店的包。
 
+第四步：批处理渠道打包
+--------------------
+执行批处理渠道打包脚本
+    channel.bat
+生成的渠道包在./bin目录下。
+
+当然也可以采用Ant循环打渠道包的方式。
+
 
 debug与release签名
 ------------------
@@ -69,10 +80,3 @@ debug与release签名
     ant auto-release
 
 即使用release签名打包，请下载本项目中的`ant.properties`，修改其中的路径、密码等等，参考http://developer.android.com/tools/building/building-cmdline.html#ReleaseMode
-
-第四步：批处理渠道打包
-执行批处理渠道打包脚本
-    channel.bat
-生成的渠道包在./bin目录下。
-
-当然也可以采用Ant循环打渠道包的方式。
